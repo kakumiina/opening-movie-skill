@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="ja" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script
+      src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"
+      integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2"
+      crossorigin="anonymous"
+    ></script>
+    <style>
+      /* macOS同梱フォントはローカル参照の宣言だけでレンダラー要件を満たす */
+      @font-face { font-family: "NotoJP"; src: local("Noto Sans CJK JP"); font-weight: 400; }
+      @font-face { font-family: "NotoJP"; src: local("Noto Sans CJK JP Medium"); font-weight: 500; }
+      @font-face { font-family: "NotoJP"; src: local("Noto Sans CJK JP Bold"); font-weight: 700; }
+      @font-face { font-family: "NotoJP"; src: local("Noto Sans CJK JP Black"); font-weight: 900; }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #04070d;
+      }
+      body {
+        font-family: "NotoJP", "Inter", sans-serif;
+        color: #f2f5fa;
+      }
+
+      .layer { position: absolute; inset: 0; }
+      .scene { position: absolute; inset: 0; }
+      .scene-inner { position: absolute; inset: 0; }
+
+      /* ---- 背景 ---- */
+      #bg-img {
+        position: absolute;
+        inset: -6%;
+        width: 112%;
+        height: 112%;
+        object-fit: cover;
+        transform-origin: 50% 55%;
+      }
+      #bg-tint {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(1400px 800px at 30% 50%, rgba(10, 26, 52, 0) 0%, rgba(3, 6, 13, 0.55) 70%, rgba(2, 4, 9, 0.92) 100%),
+          linear-gradient(100deg, rgba(4, 9, 20, 0.72) 0%, rgba(4, 9, 20, 0.12) 45%, rgba(4, 9, 20, 0.6) 100%);
+      }
+      #scan {
+        position: absolute;
+        left: 0;
+        top: -120px;
+        width: 1920px;
+        height: 1320px;
+        background: repeating-linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.05) 0px,
+          rgba(255, 255, 255, 0.05) 1px,
+          rgba(255, 255, 255, 0) 1px,
+          rgba(255, 255, 255, 0) 5px
+        );
+        opacity: 0.55;
+      }
+      #grid-h {
+        position: absolute;
+        inset: 0;
+        background:
+          repeating-linear-gradient(to right, rgba(120, 170, 255, 0.07) 0px, rgba(120, 170, 255, 0.07) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 120px);
+        opacity: 0.8;
+      }
+      .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #9fc4ff;
+        box-shadow: 0 0 12px rgba(120, 180, 255, 0.9);
+      }
+      .particle.red { background: #ff5a5a; box-shadow: 0 0 14px rgba(255, 70, 70, 0.9); }
+
+      /* 赤いライトストリーク */
+      .streak {
+        position: absolute;
+        height: 2px;
+        background: linear-gradient(to right, rgba(255, 40, 40, 0) 0%, rgba(255, 60, 60, 0.85) 55%, rgba(255, 220, 220, 0.95) 100%);
+        transform-origin: 0% 50%;
+      }
+
+      /* ---- HUD ---- */
+      #hud { position: absolute; inset: 0; }
+      .hud-txt {
+        position: absolute;
+        font-size: 20px;
+        font-weight: 500;
+        letter-spacing: 0.34em;
+        color: rgba(214, 228, 248, 0.86);
+      }
+      .bracket {
+        position: absolute;
+        width: 64px;
+        height: 64px;
+        border: 2px solid rgba(255, 70, 70, 0.55);
+      }
+      #br-tl { top: 52px; left: 52px; border-right: 0; border-bottom: 0; }
+      #br-tr { top: 52px; right: 52px; border-left: 0; border-bottom: 0; }
+      #br-bl { bottom: 52px; left: 52px; border-right: 0; border-top: 0; }
+      #br-br { bottom: 52px; right: 52px; border-left: 0; border-top: 0; }
+      #vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(1500px 900px at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.62) 100%);
+      }
+      #flash {
+        position: absolute;
+        inset: 0;
+        background: #dbe9ff;
+        opacity: 0;
+      }
+      #wipe {
+        position: absolute;
+        top: -200px;
+        left: -700px;
+        width: 460px;
+        height: 1480px;
+        background: linear-gradient(to right, rgba(255,40,40,0) 0%, rgba(255,45,45,0.9) 50%, rgba(255,255,255,0.95) 100%);
+        transform: rotate(12deg);
+        opacity: 0;
+      }
+
+      /* ---- タイトル ---- */
+      #title-wrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      #t-eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        margin-bottom: 34px;
+      }
+      #t-eyebrow .en {
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 0.42em;
+        color: #ff5555;
+      }
+      #t-eyebrow .rule { display: block; width: 120px; height: 2px; background: rgba(255, 90, 90, 0.7); }
+      #t-main {
+        font-size: 132px;
+        font-weight: 900;
+        letter-spacing: 0.03em;
+        line-height: 1.08;
+        text-align: center;
+        text-shadow: 0 0 60px rgba(20, 60, 130, 0.9);
+      }
+      #t-main .accent { color: #ff4d4d; }
+      #t-line { margin-top: 40px; width: 620px; height: 3px; background: linear-gradient(to right, rgba(255,70,70,0), #ff4d4d, rgba(255,70,70,0)); }
+      #t-sub {
+        margin-top: 34px;
+        font-size: 34px;
+        font-weight: 500;
+        letter-spacing: 0.44em;
+        color: rgba(205, 220, 245, 0.85);
+      }
+
+      /* ---- 三役 ---- */
+      .portrait {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 62%;
+        height: 100%;
+        overflow: hidden;
+        clip-path: polygon(0 0, 100% 0, calc(100% - 190px) 100%, 0 100%);
+      }
+      .portrait img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 42% 32%;
+        transform-origin: 45% 40%;
+      }
+      .portrait-grade {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(95deg, rgba(4, 10, 22, 0.15) 0%, rgba(4, 10, 22, 0.05) 60%, rgba(4, 10, 22, 0.75) 100%);
+      }
+      .portrait-edge {
+        position: absolute;
+        right: 186px;
+        top: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(to bottom, rgba(255,70,70,0), #ff4d4d 30%, #ff4d4d 70%, rgba(255,70,70,0));
+        transform: skewX(-9.7deg);
+        transform-origin: 50% 0%;
+      }
+      .info {
+        position: absolute;
+        right: 118px;
+        top: 50%;
+        width: 620px;
+        margin-top: -150px;
+        text-align: right;
+      }
+      .info .role-en {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: 0.36em;
+        color: #ff5a5a;
+      }
+      .info .role-ja {
+        margin-top: 18px;
+        font-size: 42px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        color: rgba(210, 224, 246, 0.9);
+      }
+      .info .bar {
+        display: block;
+        margin: 26px 0 26px auto;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(to left, #ff4d4d, rgba(255, 77, 77, 0));
+        transform-origin: 100% 50%;
+      }
+      .info .name {
+        font-size: 92px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-shadow: 0 0 50px rgba(10, 40, 100, 0.9);
+      }
+      .info .note {
+        margin-top: 20px;
+        font-size: 22px;
+        letter-spacing: 0.24em;
+        color: rgba(150, 172, 205, 0.75);
+      }
+
+      /* ---- スローガン ---- */
+      #slogan-wrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      #s-text {
+        font-size: 116px;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-align: center;
+        text-shadow: 0 0 70px rgba(20, 60, 140, 0.95);
+      }
+      #s-text .accent { color: #ff4d4d; }
+      #s-line { margin-top: 44px; width: 720px; height: 3px; background: linear-gradient(to right, rgba(255,70,70,0), #ff4d4d, rgba(255,70,70,0)); }
+      #s-sub {
+        margin-top: 36px;
+        font-size: 30px;
+        font-weight: 500;
+        letter-spacing: 0.4em;
+        color: rgba(200, 216, 242, 0.85);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="20"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- 背景（全編共通） -->
+      <div id="bg" class="clip layer" data-start="0" data-duration="20" data-track-index="0">
+        <img id="bg-img" src="assets/background.png" alt="" />
+        <div id="grid-h"></div>
+        <div id="bg-tint"></div>
+        <div id="scan"></div>
+        <div id="fx-particles" data-layout-allow-overflow></div>
+        <div id="fx-streaks" data-layout-allow-overflow></div>
+        <!-- ビネットは背景側に置く（テキストの上に重ねる必要がなく、重ねると検査器が遮蔽と判定する） -->
+        <div id="vignette"></div>
+      </div>
+
+      <!-- 00.0-02.0 タイトル -->
+      <div id="sc-title" class="clip scene" data-start="0" data-duration="4" data-track-index="1">
+        <div id="title-wrap" class="scene-inner">
+          <div id="t-eyebrow">
+            <span class="rule"></span>
+            <span class="en">SAMPLE</span>
+            <span class="rule"></span>
+          </div>
+          <div id="t-main">組織名<span class="accent">前半／後半</span></div>
+          <div id="t-line"></div>
+          <div id="t-sub">12TH TERM OPENING</div>
+        </div>
+      </div>
+
+      <!-- 02.0-04.0 会長 -->
+      <div id="sc-p1" class="clip scene" data-start="4" data-duration="4" data-track-index="2">
+        <div id="p1-inner" class="scene-inner">
+          <div class="portrait">
+            <img id="p1-img" src="assets/person1.png" alt="" />
+            <div class="portrait-grade"></div>
+          </div>
+          <div class="portrait-edge"></div>
+          <div class="info">
+            <div id="p1-role" class="role-en">PRESIDENT</div>
+            <div id="p1-roleja" class="role-ja">会長</div>
+            <span id="p1-bar" class="bar"></span>
+            <div id="p1-name" class="name">氏名 一郎</div>
+            <div id="p1-note" class="note">SAMPLE / 差し替え可</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 04.0-06.0 副会長 -->
+      <div id="sc-p2" class="clip scene" data-start="8" data-duration="4" data-track-index="3">
+        <div id="p2-inner" class="scene-inner">
+          <div class="portrait">
+            <img id="p2-img" src="assets/person2.png" alt="" />
+            <div class="portrait-grade"></div>
+          </div>
+          <div class="portrait-edge"></div>
+          <div class="info">
+            <div id="p2-role" class="role-en">VICE PRESIDENT</div>
+            <div id="p2-roleja" class="role-ja">副会長</div>
+            <span id="p2-bar" class="bar"></span>
+            <div id="p2-name" class="name">氏名 二郎</div>
+            <div id="p2-note" class="note">SAMPLE / 差し替え可</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 06.0-08.0 会計 -->
+      <div id="sc-p3" class="clip scene" data-start="12" data-duration="4" data-track-index="4">
+        <div id="p3-inner" class="scene-inner">
+          <div class="portrait">
+            <img id="p3-img" src="assets/person3.png" alt="" />
+            <div class="portrait-grade"></div>
+          </div>
+          <div class="portrait-edge"></div>
+          <div class="info">
+            <div id="p3-role" class="role-en">SECRETARY TREASURER</div>
+            <div id="p3-roleja" class="role-ja">会計</div>
+            <span id="p3-bar" class="bar"></span>
+            <div id="p3-name" class="name">氏名 三郎</div>
+            <div id="p3-note" class="note">SAMPLE / 差し替え可</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 08.0-10.0 スローガン -->
+      <div id="sc-slogan" class="clip scene" data-start="16" data-duration="4" data-track-index="5">
+        <div id="slogan-wrap" class="scene-inner">
+          <div id="s-text">突破は、<span class="accent">仲間</span>と起こす。</div>
+          <div id="s-line"></div>
+          <div id="s-sub">BREAK THROUGH TOGETHER</div>
+        </div>
+      </div>
+
+      <!-- HUD・エフェクト（最前面） -->
+      <div id="hud" class="clip layer" data-start="0" data-duration="20" data-track-index="8">
+        <div id="br-tl" class="bracket"></div>
+        <div id="br-tr" class="bracket"></div>
+        <div id="br-bl" class="bracket"></div>
+        <div id="br-br" class="bracket"></div>
+        <div id="hud-l" class="hud-txt" style="left: 140px; top: 66px;">ORGANIZATION NAME</div>
+        <div id="hud-r" class="hud-txt" style="right: 140px; top: 66px;">12TH TERM</div>
+        <div id="wipe" data-layout-allow-overflow></div>
+        <div id="flash"></div>
+      </div>
+
+      <audio
+        id="bgm"
+        src="assets/bgm.m4a"
+        data-start="0"
+        data-duration="20"
+        data-track-index="9"
+        data-volume="0.9"
+      ></audio>
+    </div>
+
+    <script>
+      // ---- 装飾要素の生成（同期・シード固定で決定論を守る） ----
+      let seed = 20260813;
+      const rnd = () => {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        return seed / 2147483648;
+      };
+
+      const particleHost = document.getElementById("fx-particles");
+      for (let i = 0; i < 46; i += 1) {
+        const el = document.createElement("div");
+        el.className = rnd() > 0.78 ? "particle red" : "particle";
+        el.id = "pt-" + i;
+        const size = 2 + rnd() * 5;
+        el.style.width = size + "px";
+        el.style.height = size + "px";
+        el.style.left = (rnd() * 1920).toFixed(1) + "px";
+        el.style.top = (rnd() * 1080).toFixed(1) + "px";
+        el.style.opacity = (0.18 + rnd() * 0.6).toFixed(2);
+        particleHost.appendChild(el);
+      }
+
+      const streakHost = document.getElementById("fx-streaks");
+      for (let i = 0; i < 9; i += 1) {
+        const el = document.createElement("div");
+        el.className = "streak";
+        el.id = "sk-" + i;
+        el.style.width = (280 + rnd() * 520).toFixed(0) + "px";
+        el.style.left = (rnd() * 1000).toFixed(0) + "px";
+        el.style.top = (rnd() * 1080).toFixed(0) + "px";
+        el.style.transform = "rotate(" + (-16 + rnd() * 32).toFixed(1) + "deg)";
+        el.style.opacity = (0.1 + rnd() * 0.35).toFixed(2);
+        streakHost.appendChild(el);
+      }
+
+      // ---- タイムライン ----
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // 背景：全編ゆっくりズーム＋スキャンライン流し
+      tl.fromTo("#bg-img", { scale: 1.0, x: 0 }, { scale: 1.14, x: -40, duration: 20, ease: "none" }, 0);
+      tl.fromTo("#scan", { y: 0 }, { y: 60, duration: 2.5, ease: "none", repeat: 7 }, 0);
+      tl.fromTo("#grid-h", { x: 0 }, { x: -120, duration: 5, ease: "none", repeat: 3 }, 0);
+
+      // パーティクル：上昇＋明滅（有限リピート）
+      for (let i = 0; i < 46; i += 1) {
+        const dur = 3.2 + (i % 7) * 0.55;
+        tl.fromTo(
+          "#pt-" + i,
+          { y: 0 },
+          { y: -180 - (i % 5) * 60, duration: dur, ease: "none", repeat: Math.max(0, Math.floor(20 / dur) - 1) },
+          0
+        );
+        tl.to("#pt-" + i, { opacity: 0.06, duration: 1.1 + (i % 4) * 0.4, ease: "sine.inOut", yoyo: true, repeat: 11 }, (i % 9) * 0.2);
+      }
+
+      // ライトストリーク：横に流れる
+      for (let i = 0; i < 9; i += 1) {
+        const dur = 2.4 + (i % 4) * 0.7;
+        tl.fromTo(
+          "#sk-" + i,
+          { x: -420, scaleX: 0.6 },
+          { x: 620, scaleX: 1.25, duration: dur, ease: "none", repeat: Math.max(0, Math.floor(20 / dur) - 1) },
+          (i % 5) * 0.35
+        );
+      }
+
+      // HUD
+      tl.from("#hud-l", { opacity: 0, x: -30, duration: 0.8, ease: "power2.out" }, 0.2);
+      tl.from("#hud-r", { opacity: 0, x: 30, duration: 0.8, ease: "power2.out" }, 0.2);
+      tl.from("#br-tl", { opacity: 0, x: -24, y: -24, duration: 0.6, ease: "power2.out" }, 0.1);
+      tl.from("#br-tr", { opacity: 0, x: 24, y: -24, duration: 0.6, ease: "power2.out" }, 0.1);
+      tl.from("#br-bl", { opacity: 0, x: -24, y: 24, duration: 0.6, ease: "power2.out" }, 0.1);
+      tl.from("#br-br", { opacity: 0, x: 24, y: 24, duration: 0.6, ease: "power2.out" }, 0.1);
+      tl.to("#hud-l", { opacity: 0, duration: 0.5, ease: "power2.in" }, 19.4);
+      tl.to("#hud-r", { opacity: 0, duration: 0.5, ease: "power2.in" }, 19.4);
+
+      // シーン切替のフラッシュ＋赤ワイプ
+      [0, 4, 8, 12, 16].forEach((t, idx) => {
+        tl.fromTo("#flash", { opacity: 0 }, { opacity: idx === 0 ? 0.5 : 0.34, duration: 0.07, ease: "power2.out" }, t);
+        tl.to("#flash", { opacity: 0, duration: 0.24, ease: "power2.in" }, t + 0.07);
+        tl.fromTo("#wipe", { x: 0, opacity: 0.9 }, { x: 2900, opacity: 0, duration: 0.42, ease: "power2.in" }, t);
+      });
+
+      // --- 00.0-02.0 タイトル ---
+      tl.from("#t-eyebrow", { opacity: 0, y: 18, duration: 0.5, ease: "power2.out" }, 0.18);
+      tl.from("#t-main", { opacity: 0, y: 54, scale: 1.08, duration: 0.75, ease: "power3.out" }, 0.3);
+      tl.fromTo("#t-line", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.inOut" }, 0.85);
+      tl.from("#t-sub", { opacity: 0, y: 20, duration: 0.55, ease: "power2.out" }, 1.0);
+      tl.to("#title-wrap", { opacity: 0, y: -34, scale: 1.05, duration: 0.3, ease: "power2.in" }, 3.7);
+      tl.set("#title-wrap", { opacity: 0 }, 4.0);
+
+      // --- 三役シーン（2.0 / 4.0 / 6.0） ---
+      [
+        { t: 4, id: "p1" },
+        { t: 8, id: "p2" },
+        { t: 12, id: "p3" },
+      ].forEach(({ t, id }) => {
+        tl.from("#" + id + "-img", { opacity: 0, x: -110, scale: 1.2, duration: 0.7, ease: "power3.out" }, t + 0.02);
+        tl.fromTo("#" + id + "-img", { scale: 1.12 }, { scale: 1.0, duration: 4.0, ease: "none" }, t);
+        tl.from("#" + id + "-role", { opacity: 0, x: 70, duration: 0.5, ease: "power3.out" }, t + 0.2);
+        tl.from("#" + id + "-roleja", { opacity: 0, x: 50, duration: 0.5, ease: "power3.out" }, t + 0.3);
+        tl.fromTo("#" + id + "-bar", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.inOut" }, t + 0.38);
+        tl.from("#" + id + "-name", { opacity: 0, x: 60, duration: 0.55, ease: "power3.out" }, t + 0.45);
+        tl.from("#" + id + "-note", { opacity: 0, duration: 0.5, ease: "power2.out" }, t + 0.7);
+        tl.to("#" + id + "-inner", { opacity: 0, x: -60, duration: 0.28, ease: "power2.in" }, t + 3.72);
+        tl.set("#" + id + "-inner", { opacity: 0 }, t + 4.0);
+      });
+
+      // --- 08.0-10.0 スローガン ---
+      tl.from("#s-text", { opacity: 0, y: 40, scale: 1.16, duration: 0.85, ease: "power3.out" }, 16.05);
+      tl.fromTo("#s-line", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power2.inOut" }, 16.5);
+      tl.from("#s-sub", { opacity: 0, y: 20, duration: 0.6, ease: "power2.out" }, 16.7);
+      tl.to("#slogan-wrap", { opacity: 0, duration: 0.45, ease: "power2.in" }, 19.55);
+      tl.to("#bgm", { volume: 0, duration: 0.5, ease: "power2.in" }, 19.5);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
